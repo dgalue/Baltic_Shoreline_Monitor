@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
+#include "freertos/semphr.h"
 
 // Pin definitions
 #define I2C_SDA   5
@@ -34,3 +35,9 @@ typedef struct {
 extern QueueHandle_t q_audio;
 extern QueueHandle_t q_events;
 extern QueueHandle_t q_log;
+
+// Global I2C mutex
+extern SemaphoreHandle_t mtx_i2c;
+
+// Hardware initialisation helper
+bool hardware_init();
