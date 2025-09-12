@@ -3,6 +3,7 @@
 #include "freertos/task.h"
 
 extern "C" void meshtastic_init(); // Provided by Meshtastic firmware
+extern "C" void hardware_init();   // Platform-specific hardware setup
 
 QueueHandle_t q_audio;
 QueueHandle_t q_events;
@@ -10,6 +11,7 @@ QueueHandle_t q_log;
 
 extern "C" void app_main(void) {
   meshtastic_init();
+  hardware_init();
 
   q_audio = xQueueCreate(8, sizeof(audio_block_t));
   q_events = xQueueCreate(64, sizeof(event_t));
