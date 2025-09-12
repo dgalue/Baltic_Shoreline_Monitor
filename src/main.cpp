@@ -1,6 +1,8 @@
 #include "common.h"
 #include "tasks/tasks.h"
 #include "freertos/task.h"
+#include "esp_task_wdt.h"
+#include "esp_system.h"
 
 extern "C" void meshtastic_init(); // Provided by Meshtastic firmware
 extern "C" void hardware_init();   // Platform-specific hardware setup
@@ -9,6 +11,10 @@ QueueHandle_t q_audio;
 QueueHandle_t q_events;
 QueueHandle_t q_log;
 
+extern "C" void wdt_timeout_handler(void) {
+  esp_restart();
+}
+
 extern "C" void app_main(void) {
   meshtastic_init();
   hardware_init();
@@ -16,6 +22,9 @@ extern "C" void app_main(void) {
   if (!hardware_init()) {
     return; // fail safely
   }
+
+  esp_task_wdt_init(10, true);
+  esp_task_wdt_set_user_handler(wdt_timeout_handler);
 
   q_audio = xQueueCreate(8, sizeof(audio_block_t));
   q_events = xQueueCreate(64, sizeof(event_t));
