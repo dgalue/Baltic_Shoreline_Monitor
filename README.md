@@ -23,6 +23,16 @@ This repository vendors Meshtastic firmware release **meshtastic-firmware-2.6.11
 3. Build the firmware: `pio run -e seeed-xiao-s3`
 4. Connect the board over USB and flash: `pio run -e seeed-xiao-s3 -t upload`
 
+## Integration Test
+A minimal integration test (`tests/integration_test.cpp`) initializes Meshtastic and the custom FreeRTOS tasks.
+It runs for about ten seconds and prints queue levels while feeding the watchdog. Flash and run it with:
+
+```bash
+pio test -e seeed-xiao-s3 -f integration_test -t upload
+```
+
+Expected serial output is documented in [docs/integration_test.md](./docs/integration_test.md).
+
 ## Detailed Guides
 - [ESP32-S3 Comprehensive Guide](./ESP32-S3_Comprehensive_Guide.md)
 - [Meshtastic firmware README](./meshtastic-firmware-2.6.11.60ec05e/README.md)
