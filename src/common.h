@@ -27,7 +27,8 @@ typedef struct {
 
 // Log blob container for q_log
 typedef struct {
-  size_t len;
+  uint8_t status;  // 1 if sent over mesh, 0 if only logged
+  size_t  len;
   uint8_t data[256];
 } log_blob_t;
 

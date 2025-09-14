@@ -99,7 +99,9 @@ void Task_Logger(void *pvParameters) {
       }
 
       uint32_t offset = dataFile.size();
+      uint8_t status = blob.status;
       uint16_t len = blob.len;
+      dataFile.write(&status, sizeof(status));
       dataFile.write((uint8_t *)&len, sizeof(len));
       dataFile.write(blob.data, len);
       dataFile.flush();

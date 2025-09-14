@@ -6,7 +6,20 @@
 #include <assert.h>
 #include <stdio.h>
 
-extern "C" void meshtastic_init();
+extern "C" {
+void meshtastic_init() {}
+void Task_SenseAudio(void*) {}
+void Task_GPS(void*) {}
+void Task_Vision(void*) {}
+void Task_Logger(void*) {}
+void Task_Uplink(void*) {}
+}
+
+QueueHandle_t q_audio;
+QueueHandle_t q_events;
+QueueHandle_t q_log;
+SemaphoreHandle_t mtx_i2c;
+bool hardware_init() { return true; }
 
 static void monitor_task(void *pvParameters) {
     const TickType_t delay = pdMS_TO_TICKS(1000);
@@ -35,6 +48,11 @@ extern "C" void app_main(void) {
     xTaskCreatePinnedToCore(Task_Logger,     "Task_Logger",     4096, NULL, 5, NULL, 1);
     xTaskCreatePinnedToCore(Task_Uplink,     "Task_Uplink",     4096, NULL, 5, NULL, 1);
 
-    xTaskCreate(monitor_task, "monitor_task", 4096, NULL, 5, NULL);
+    monitor_task(NULL);
+}
+
+int main() {
+    app_main();
+    return 0;
 }
 
