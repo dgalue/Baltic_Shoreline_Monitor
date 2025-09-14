@@ -18,6 +18,9 @@ The device will include:
 - Optional TinyML-based object detection or sound classification models trained on real-world Baltic data
 The NextPCB voucher will be used to manufacture the waterproof PCB that integrates the ESP32, charging circuit, preamp, LoRa module, and sensor inputs. Two units will be fabricated for validation and deployment.
 
+![System architecture of the shoreline monitor buoy](assets/architecture.jpg)
+*High-level wiring diagram connecting sensors, power, and radio modules.*
+
 List the hardware and software you will use to build this.
 - MCU: Xiao ESP32-S3
 - CAM: Grove - Vision AI module V2 Himax WiseEye2 HX6538
@@ -30,6 +33,9 @@ List the hardware and software you will use to build this.
 - Edge Impulse or TensorFlow Lite – visual/audio TinyML
 - Meshtastic firmware (LoRa)
 - Custom C++ firmware (ESP-IDF or Arduino)
+
+![3D-printed prototype with solar panel and sensors](assets/prototype.jpg)
+*Early prototype of the buoy hardware.*
 
 Which Track are you participating in?
 1. Idea to Prototype
@@ -45,3 +51,6 @@ https://diegogalue.tech/ https://github.com/dgalue
 
 Did you register for "On the Edge" giveaway to make sure your application here is accounted for points towards the Omni AI Campaign?
 Yes
+
+![Meshtastic app searching for buoy nodes](assets/meshtastic-search.png)
+*Meshtastic phone app discovering nearby LoRa nodes.*
