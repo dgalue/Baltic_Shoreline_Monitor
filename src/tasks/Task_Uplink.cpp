@@ -28,8 +28,9 @@ void Task_Uplink(void *pvParameters) {
         }
       }
 
-      if (!sent && q_log) {
+      if (q_log) {
         log_blob_t blob;
+        blob.status = sent ? 1 : 0;
         blob.len = len > sizeof(blob.data) ? sizeof(blob.data) : len;
         memcpy(blob.data, payload, blob.len);
         xQueueSend(q_log, &blob, 0);
