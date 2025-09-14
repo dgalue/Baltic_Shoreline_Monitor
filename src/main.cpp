@@ -5,7 +5,6 @@
 #include "esp_system.h"
 
 extern "C" void meshtastic_init(); // Provided by Meshtastic firmware
-extern "C" void hardware_init();   // Platform-specific hardware setup
 
 QueueHandle_t q_audio;
 QueueHandle_t q_events;
@@ -17,8 +16,6 @@ extern "C" void wdt_timeout_handler(void) {
 
 extern "C" void app_main(void) {
   meshtastic_init();
-  hardware_init();
-
   if (!hardware_init()) {
     return; // fail safely
   }
