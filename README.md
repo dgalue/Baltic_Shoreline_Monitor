@@ -27,6 +27,23 @@ This repository vendors Meshtastic firmware release **meshtastic-firmware-2.6.11
 3. Build the firmware: `pio run -e seeed-xiao-s3`
 4. Connect the board over USB and flash: `pio run -e seeed-xiao-s3 -t upload`
 
+## Building the Host Integration Test
+The integration test in `tests/integration_test.cpp` can be compiled and run on a
+desktop machine. The original instructions used `/tmp/integration_test` as the
+output binary, which works on Unix-like systems but fails on Windows because the
+`/tmp` directory is not defined. Use a repository-local build directory instead:
+
+1. Create an output directory (run once):
+   - macOS/Linux: `mkdir -p build`
+   - Windows (PowerShell or Command Prompt): `mkdir build`
+2. Compile the test:
+   - macOS/Linux: `g++ -std=c++17 tests/integration_test.cpp -Isrc -o build/integration_test`
+   - Windows (MinGW): `g++ -std=c++17 tests/integration_test.cpp -Isrc -o build\integration_test.exe`
+3. Run the resulting executable from the `build` directory.
+
+If you prefer another location, make sure the directory exists and update the
+`-o` argument accordingly.
+
 ## Detailed Guides
 - [ESP32-S3 Comprehensive Guide](./ESP32-S3_Comprehensive_Guide.md)
 - [Meshtastic firmware README](./meshtastic-firmware-2.6.11.60ec05e/README.md)
