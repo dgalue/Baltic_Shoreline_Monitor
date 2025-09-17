@@ -112,7 +112,7 @@ main
 
 | Date | Firmware Commit | Observed Behavior |
 | --- | --- | --- |
-| _pending_ | | |
+| 2025-09-17 | 60ec05e | Indoors the receiver never obtained a fix; after moving outdoors it locked a valid 3D solution with HDOP 0.9 and reported ~8 m altitude. |
 
 ## Grove Vision AI V2 (I²C)
 
