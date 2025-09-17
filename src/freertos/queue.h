@@ -13,7 +13,7 @@ typedef struct {
 typedef Queue* QueueHandle_t;
 
 static inline QueueHandle_t xQueueCreate(UBaseType_t length, UBaseType_t item_size) {
-    Queue* q = new Queue{(size_t)item_size, (size_t)length, {}};
+    Queue* q = new Queue{(size_t)item_size, (size_t)length};
     return q;
 }
 
