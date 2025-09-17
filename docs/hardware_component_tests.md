@@ -1,10 +1,17 @@
 # Hardware Component Validation Guide
 
 This guide explains how to bring up each peripheral connected to the Seeed XIAO
+codex/update-queue-creation-in-queue.h-k0zvnu
 ESP32S3 individually. Every test runs on actual hardware and relies on
 manufacturer example sketches or widely available Arduino/PlatformIO libraries.
 Run the tests one at a time before integrating the components into the full
 Baltic Shoreline Monitor firmware.
+
+ESP32S3 individually. Every test runs on actual hardware and uses readily
+available Arduino/PlatformIO libraries supplied by Seeed Studio or well-known
+community projects. Run the tests one at a time before integrating the
+components into the full Baltic Shoreline Monitor firmware.
+main
 
 > **Note**
 > The commands below require physical access to the development board and
@@ -31,12 +38,17 @@ avoid bus contention.
 
 ## Air530 GPS (UART)
 
+codex/update-queue-creation-in-queue.h-k0zvnu
 - **Library**: none required (use the built-in `HardwareSerial` interface)
+
+- **Library**: `Seeed_Arduino_GroveGPS`
+main
 - **Wiring**: connect GPS `TX` to XIAO pin `GPIO44 (RX)`, GPS `RX` to
   `GPIO43 (TX)`, and `5V`/`GND` to the matching pins.
 
 ```cpp
 #include <Arduino.h>
+codex/update-queue-creation-in-queue.h-k0zvnu
 
 HardwareSerial GPS(1);
 
@@ -64,6 +76,37 @@ USB once the module powers up. You can copy the output into a GPS viewer such as
 https://www.gpsvisualizer.com/ to decode location and fix data. Because this sketch
 simply bridges UART-to-USB, the text should match the raw sentences described in
 Seeed's Air530 documentation (<https://wiki.seeedstudio.com/Grove-GPS-Air530/>).
+=======
+#include <GroveGPS.h>
+
+GroveGPS gps;
+
+void setup() {
+  Serial.begin(115200);
+  gps.begin();
+}
+
+void loop() {
+  if (gps.available()) {
+    GPS_DATA data;
+    if (gps.readData(&data)) {
+      Serial.print("UTC:");
+      Serial.print(data.UTCtime);
+      Serial.print(" Lat:");
+      Serial.print(data.latitude, 6);
+      Serial.print(" Lon:");
+      Serial.print(data.longitude, 6);
+      Serial.print(" Fix:");
+      Serial.println(data.fixstatus);
+    }
+  }
+}
+```
+
+**Expected output**: NMEA-derived latitude/longitude pairs and fix status
+printed every second once the receiver acquires satellites. A fix status of `1`
+indicates a valid 3D fix.
+main
 
 **Result**:
 
