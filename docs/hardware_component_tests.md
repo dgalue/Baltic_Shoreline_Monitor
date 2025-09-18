@@ -44,7 +44,7 @@ a suitable environment ahead of time.
 | Component | Interface | Last Run | Firmware Commit | Result Summary |
 | --- | --- | --- | --- | --- |
 | Air530 GPS Module | UART1 @ 9600 bps | 2025-09-17 | 60ec05e | Locked a clean 3D fix outdoors after no indoor acquisition; HDOP 0.9, altitude ≈ 8 m. |
-| Grove Vision AI V2 | I²C (0x62) | _pending_ | _pending_ | Awaiting first article validation. |
+| Grove Vision AI V2 | I²C (0x62) | 2025-09-19 | b7130f2 | Frequent `Invoke failed` responses with sporadic single-box detections (target 0 score ≈ 50). |
 | MicroSD Card | SPI @ 20 MHz | _pending_ | _pending_ | Card bring-up not yet logged. |
 | SSD1315 OLED | I²C (0x3C) | _pending_ | _pending_ | Display test not yet logged. |
 | Hydrophone + Preamp | ADC1 continuous | _pending_ | _pending_ | Acoustic capture test pending. |
@@ -133,7 +133,6 @@ steady altitude reading consistent with your site.
 < codex/update-air530-gps-test-results-mq8xpw
 > main
 | 2025-09-17 | 60ec05e | No fix while indoors; once outdoors the receiver acquired a 3D lock in ~40 s with HDOP 0.9 and altitude ~8 m. |
-| _pending_ | | |
 =
 | 2025-09-17 | 60ec05e | Indoors the receiver never obtained a fix; after moving outdoors it locked a valid 3D solution with HDOP 0.9 and reported ~8 m altitude. |
 > main
@@ -302,17 +301,20 @@ camera and confirm detections increment on the console.
 
 #### Expected Results
 
-> main
 - Successful initialization prints `Vision AI ready` and produces object
 reports once the model recognises targets.
 - Idle power should stay below 110 mA. If the board browns out, verify that your
 USB supply can source sufficient current.
 
+If repeated `Invoke failed` messages appear, re-check the 3V3 rail and consider
+reflashing the module firmware; marginal power or stale firmware can cause the
+inference routine to abort mid-cycle.
+
 #### Result Log
 
 | Date | Firmware Commit | Observed Behavior |
 | --- | --- | --- |
-| _pending_ | | |
+| 2025-09-19 | b7130f2 | Majority of invokes printed `Invoke failed`; every few iterations one pass succeeded, reporting `Detected 1 boxes` with target 0 score 50 before the failures returned, pointing to unstable inference likely tied to power or firmware. |
 
 ---
 
