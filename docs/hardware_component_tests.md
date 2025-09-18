@@ -128,13 +128,23 @@ steady altitude reading consistent with your site.
 
 | Date | Firmware Commit | Observed Behavior |
 | --- | --- | --- |
+< codex/update-air530-gps-test-results-fl6kb5
+=
 < codex/update-air530-gps-test-results-mq8xpw
+> main
 | 2025-09-17 | 60ec05e | No fix while indoors; once outdoors the receiver acquired a 3D lock in ~40 s with HDOP 0.9 and altitude ~8 m. |
 | _pending_ | | |
 =
 | 2025-09-17 | 60ec05e | Indoors the receiver never obtained a fix; after moving outdoors it locked a valid 3D solution with HDOP 0.9 and reported ~8 m altitude. |
 > main
 
+---
+
+### Grove Vision AI V2 (I²C)
+
+**Interface:** I²C @ 400 kHz (address 0x62)
+
+< codex/update-air530-gps-test-results-fl6kb5
 ---
 
 ### Grove Vision AI V2 (I²C)
@@ -156,6 +166,23 @@ steady altitude reading consistent with your site.
 | SCL | GPIO6 | Shared I²C bus. |
 | INT (optional) | GPIO4 | Optional interrupt for event-driven capture. |
 
+=
+#### Required Parts
+- Seeed XIAO ESP32S3
+- Grove Vision AI V2 camera module
+- Grove-to-male jumper cable or breadboard adapter
+
+#### Wiring
+
+| Vision AI Pin | XIAO ESP32S3 Pin | Notes |
+| --- | --- | --- |
+| VCC | 3V3 | Module draws ~110 mA during inference. |
+| GND | GND | Common ground. |
+| SDA | GPIO5 | Shared I²C bus. |
+| SCL | GPIO6 | Shared I²C bus. |
+| INT (optional) | GPIO4 | Optional interrupt for event-driven capture. |
+
+> main
 #### Firmware Sketch
 
 ```cpp
@@ -163,24 +190,62 @@ steady altitude reading consistent with your site.
 #include <Wire.h>
 #include <Seeed_Arduino_SSCMA.h>
 
+< codex/update-air530-gps-test-results-fl6kb5
+constexpr int SDA_PIN = 5;
+constexpr int SCL_PIN = 6;
+
+=
+> main
 SSCMA vision;
 
 void setup() {
   Serial.begin(115200);
+< codex/update-air530-gps-test-results-fl6kb5
+  while (!Serial) {
+    delay(10);
+  }
+
+  Wire.begin(SDA_PIN, SCL_PIN);
+  Wire.setClock(400000);
+
+  if (!vision.begin(&Wire)) {
+=
   Wire.begin(5, 6);  // SDA, SCL
 
   if (!vision.begin()) {
+> main
     Serial.println("Vision AI init failed");
     while (true) {
       delay(1000);
     }
   }
 
+< codex/update-air530-gps-test-results-fl6kb5
+=
   vision.setDefaultModel();
+> main
   Serial.println("Vision AI ready");
 }
 
 void loop() {
+< codex/update-air530-gps-test-results-fl6kb5
+  if (vision.invoke(1, false, false) == 0) {
+    auto &boxes = vision.boxes();
+    auto &classes = vision.classes();
+
+    Serial.printf("Detected %u boxes\n", static_cast<unsigned int>(boxes.size()));
+    for (size_t i = 0; i < boxes.size(); ++i) {
+      const auto &box = boxes[i];
+      Serial.printf(
+          "  Box %u target %u score %u x=%u y=%u w=%u h=%u\n",
+          static_cast<unsigned int>(i),
+          static_cast<unsigned int>(box.target),
+          static_cast<unsigned int>(box.score),
+          static_cast<unsigned int>(box.x),
+          static_cast<unsigned int>(box.y),
+          static_cast<unsigned int>(box.w),
+          static_cast<unsigned int>(box.h));
+=
   if (vision.invoke()) {
     SSCMA::object_detection_t result;
     if (vision.getResult(result)) {
@@ -189,12 +254,36 @@ void loop() {
         const auto &obj = result.objects[i];
         Serial.printf("  #%u score %.2f center (%u,%u)\n", i, obj.score, obj.x, obj.y);
       }
+> main
     }
+
+    Serial.printf("Detected %u classes\n", static_cast<unsigned int>(classes.size()));
+    for (size_t i = 0; i < classes.size(); ++i) {
+      const auto &cls = classes[i];
+      Serial.printf("  Class %u target %u score %u\n",
+                    static_cast<unsigned int>(i),
+                    static_cast<unsigned int>(cls.target),
+                    static_cast<unsigned int>(cls.score));
+    }
+  } else {
+    Serial.println("Invoke failed");
   }
+< codex/update-air530-gps-test-results-fl6kb5
+
+=
+> main
   delay(200);
 }
 ```
 
+< codex/update-air530-gps-test-results-fl6kb5
+The module runs whichever model is currently flashed in its firmware. Successful
+`vision.invoke(...)` calls populate the bounding-box and classification vectors,
+which the sketch prints with raw confidence scores (0–100) for each detected
+target.
+
+=
+> main
 #### Test Steps
 
 1. Connect the module while the ESP32-S3 is powered off to avoid hot-plug
@@ -205,9 +294,15 @@ the I²C wiring and power rails.
 4. Present a high-contrast object or the bundled classification card to the
 camera and confirm detections increment on the console.
 5. Record detection counts, confidence scores, and any anomalies.
+< codex/update-air530-gps-test-results-fl6kb5
 
 #### Expected Results
 
+=
+
+#### Expected Results
+
+> main
 - Successful initialization prints `Vision AI ready` and produces object
 reports once the model recognises targets.
 - Idle power should stay below 110 mA. If the board browns out, verify that your
@@ -222,6 +317,7 @@ USB supply can source sufficient current.
 ---
 
 ### MicroSD Card (SPI)
+< codex/update-air530-gps-test-results-fl6kb5
 
 **Interface:** SPI @ up to 20 MHz (SCK → GPIO7, MOSI → GPIO9, MISO → GPIO8, CS → GPIO3)
 
@@ -240,6 +336,26 @@ USB supply can source sufficient current.
 | MISO | GPIO8 | Data into ESP32-S3. |
 | SCK | GPIO7 | SPI clock. |
 
+=
+
+**Interface:** SPI @ up to 20 MHz (SCK → GPIO7, MOSI → GPIO9, MISO → GPIO8, CS → GPIO3)
+
+#### Required Parts
+- Seeed XIAO ESP32S3 with expansion board or breakouts exposing SPI pins
+- microSD card (FAT32 formatted)
+
+#### Wiring
+
+| microSD Pin | XIAO ESP32S3 Pin | Notes |
+| --- | --- | --- |
+| VCC | 3V3 | Use a level-shifted socket if the card requires 3.3 V I/O. |
+| GND | GND | Common ground. |
+| CS | GPIO3 | Chip-select (active low). |
+| MOSI | GPIO9 | Data out from ESP32-S3. |
+| MISO | GPIO8 | Data into ESP32-S3. |
+| SCK | GPIO7 | SPI clock. |
+
+> main
 #### Firmware Sketch
 
 ```cpp
@@ -317,6 +433,7 @@ payload.
 #### Required Parts
 - Seeed XIAO ESP32S3
 - Grove SSD1315 128×64 OLED or equivalent
+< codex/update-air530-gps-test-results-fl6kb5
 
 #### Wiring
 
@@ -327,6 +444,18 @@ payload.
 | SDA | GPIO5 | Shared I²C bus. |
 | SCL | GPIO6 | Shared I²C bus. |
 
+=
+
+#### Wiring
+
+| OLED Pin | XIAO ESP32S3 Pin | Notes |
+| --- | --- | --- |
+| VCC | 3V3 | Display draws ~20 mA. |
+| GND | GND | Common ground. |
+| SDA | GPIO5 | Shared I²C bus. |
+| SCL | GPIO6 | Shared I²C bus. |
+
+> main
 #### Firmware Sketch
 
 ```cpp
@@ -388,6 +517,7 @@ void loop() {
 ### Hydrophone + Preamp (Analog ADC)
 
 **Interface:** ESP32-S3 ADC1 channel 0 (GPIO1) sampled at 12-bit resolution
+< codex/update-air530-gps-test-results-fl6kb5
 
 #### Required Parts
 - Seeed XIAO ESP32S3
@@ -403,6 +533,23 @@ void loop() {
 | Preamp Output | GPIO1 (ADC1_CH0) | Center the signal around 1.65 V. |
 | Optional Power Gate | GPIO2 | Use for muting the preamp between bursts. |
 
+=
+
+#### Required Parts
+- Seeed XIAO ESP32S3
+- INA332 (or equivalent) hydrophone preamplifier with mid-rail bias
+- Hydrophone element and shielded audio cable
+
+#### Wiring
+
+| Signal | XIAO ESP32S3 Pin | Notes |
+| --- | --- | --- |
+| Preamp VCC | 3V3 | Ensure the preamp supply is filtered. |
+| Preamp GND | GND | Tie the shield to ground at a single point. |
+| Preamp Output | GPIO1 (ADC1_CH0) | Center the signal around 1.65 V. |
+| Optional Power Gate | GPIO2 | Use for muting the preamp between bursts. |
+
+> main
 #### Firmware Sketch
 
 ```cpp
