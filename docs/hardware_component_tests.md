@@ -1,63 +1,95 @@
 # Hardware Component Validation Guide
 
-This guide explains how to bring up each peripheral connected to the Seeed XIAO
-codex/update-queue-creation-in-queue.h-k0zvnu
-ESP32S3 individually. Every test runs on actual hardware and relies on
-manufacturer example sketches or widely available Arduino/PlatformIO libraries.
-Run the tests one at a time before integrating the components into the full
-Baltic Shoreline Monitor firmware.
+This guide documents the standalone bring-up tests for each peripheral used by the
+Baltic Shoreline Monitor. Run these procedures on real hardware to validate new
+boards, confirm repairs, or qualify firmware changes before merging them into the
+main application.
 
-ESP32S3 individually. Every test runs on actual hardware and uses readily
-available Arduino/PlatformIO libraries supplied by Seeed Studio or well-known
-community projects. Run the tests one at a time before integrating the
-components into the full Baltic Shoreline Monitor firmware.
-main
+---
 
-> **Note**
-> The commands below require physical access to the development board and
-> sensors. They cannot be exercised in CI; capture the observed output in the
-> "Result" field for each test once you complete it on hardware.
+## How to Use This Guide
 
-## Common Setup
+1. Work on one peripheral at a time with every other device disconnected unless
+the procedure explicitly calls for a companion radio or sensor.
+2. Create a fresh PlatformIO project (or reuse an existing scratch project)
+targeting **seeed_xiao_esp32s3**.
+3. Install the libraries called out in each section with `pio lib install`.
+4. Copy the firmware sketch into `src/main.cpp`, build with `pio run`, and flash
+with `pio run -t upload`.
+5. Monitor the serial console at 115200 bps unless a different baud rate is
+specified.
+6. Capture the observed behaviour in the corresponding result table. Include
+the test date, the firmware commit (or sketch hash) that exercised the hardware,
+and a concise summary of the outcome.
 
-1. Install PlatformIO (`pip install platformio`) if you have not already.
-2. From the repository root run `pio project init --board seeed_xiao_esp32s3`
-   inside a temporary folder such as `hardware-bringup/`.
-3. Install the required libraries listed in each section using
-   `pio lib install <name>`.
-4. Copy the corresponding `main.cpp` snippet into the PlatformIO project's
-   `src/` directory, build with `pio run`, then flash with
-   `pio run -t upload`.
-5. Open a serial monitor at 115200 bps (`pio device monitor`) to watch the
-   output.
-6. Record the observed behavior in the result table.
+### Common Setup
 
-Power each peripheral from the 3V3 and GND pins on the XIAO ESP32S3 and connect
-signal pins as described below. Disconnect other peripherals while testing to
-avoid bus contention.
+- Power peripherals from the XIAO ESP32S3 3V3 and GND pins. The USB supply is
+sufficient for the individual tests in this document.
+- Use short jumper wires and keep high-gain analog lines (hydrophone output) away
+from switching regulators or digital busses.
+- If a test depends on outdoor conditions (GPS reception, solar charging), plan
+a suitable environment ahead of time.
 
-## Air530 GPS (UART)
+### Documentation Standards
 
-codex/update-queue-creation-in-queue.h-k0zvnu
-- **Library**: none required (use the built-in `HardwareSerial` interface)
+- Use ISO-8601 dates (`YYYY-MM-DD`).
+- Reference firmware with a short Git hash or release tag.
+- When a test fails, record the failure mode and open a tracking issue.
 
-- **Library**: `Seeed_Arduino_GroveGPS`
-main
-- **Wiring**: connect GPS `TX` to XIAO pin `GPIO44 (RX)`, GPS `RX` to
-  `GPIO43 (TX)`, and `5V`/`GND` to the matching pins.
+---
+
+## Test Summary
+
+| Component | Interface | Last Run | Firmware Commit | Result Summary |
+| --- | --- | --- | --- | --- |
+| Air530 GPS Module | UART1 @ 9600 bps | 2025-09-17 | 60ec05e | Locked a clean 3D fix outdoors after no indoor acquisition; HDOP 0.9, altitude ≈ 8 m. |
+| Grove Vision AI V2 | I²C (0x62) | _pending_ | _pending_ | Awaiting first article validation. |
+| MicroSD Card | SPI @ 20 MHz | _pending_ | _pending_ | Card bring-up not yet logged. |
+| SSD1315 OLED | I²C (0x3C) | _pending_ | _pending_ | Display test not yet logged. |
+| Hydrophone + Preamp | ADC1 continuous | _pending_ | _pending_ | Acoustic capture test pending. |
+| SX1262 LoRa Radio | Internal SPI | _pending_ | _pending_ | RF smoke test pending follow-up. |
+
+Update the summary table after every hardware run so that the system status is
+immediately visible to reviewers and manufacturing partners.
+
+---
+
+## Component Test Procedures
+
+### Air530 GPS Module (UART)
+
+**Interface:** UART1 (GPS TX → GPIO44, GPS RX → GPIO43) @ 9600 bps
+
+#### Required Parts
+- Seeed XIAO ESP32S3 (LoRa variant or standard)
+- Air530 (or compatible) GPS receiver
+- Jumper wires and optional external antenna
+
+#### Wiring
+
+| Air530 Pin | XIAO ESP32S3 Pin | Notes |
+| --- | --- | --- |
+| VCC | 3V3 | Module tolerates 3.3–5 V; stay at 3.3 V for XIAO compatibility. |
+| GND | GND | Common ground. |
+| TX | GPIO44 (RX1) | GPS UART output. |
+| RX | GPIO43 (TX1) | Leave disconnected if not sending commands. |
+| PPS (optional) | GPIO10 | Optional 1PPS for time-discipline tests. |
+
+#### Firmware Sketch
 
 ```cpp
 #include <Arduino.h>
-codex/update-queue-creation-in-queue.h-k0zvnu
 
 HardwareSerial GPS(1);
 
-constexpr int GPS_RX = 44;  // XIAO pin receiving GPS TX
-constexpr int GPS_TX = 43;  // XIAO pin driving GPS RX
+constexpr int GPS_RX_PIN = 44;  // XIAO pin receiving GPS TX
+constexpr int GPS_TX_PIN = 43;  // XIAO pin driving GPS RX
 
 void setup() {
   Serial.begin(115200);
-  GPS.begin(9600, SERIAL_8N1, GPS_RX, GPS_TX);
+  GPS.begin(9600, SERIAL_8N1, GPS_RX_PIN, GPS_TX_PIN);
+  Serial.println("Air530 smoke test ready");
 }
 
 void loop() {
@@ -65,127 +97,170 @@ void loop() {
     Serial.write(GPS.read());
   }
 
+  // Passthrough for NMEA command experiments if needed.
   while (Serial.available()) {
     GPS.write(Serial.read());
   }
 }
 ```
 
-**Expected output**: NMEA sentences (e.g., `$GPGGA`, `$GPRMC`) streaming over
-USB once the module powers up. You can copy the output into a GPS viewer such as
-https://www.gpsvisualizer.com/ to decode location and fix data. Because this sketch
-simply bridges UART-to-USB, the text should match the raw sentences described in
-Seeed's Air530 documentation (<https://wiki.seeedstudio.com/Grove-GPS-Air530/>).
-=======
-#include <GroveGPS.h>
+This sketch bridges UART1 to the USB console so you can observe raw NMEA sentences
+(`$GPGGA`, `$GPRMC`, etc.) as soon as the receiver powers up.
 
-GroveGPS gps;
+#### Test Steps
 
-void setup() {
-  Serial.begin(115200);
-  gps.begin();
-}
+1. Flash the sketch and open the serial monitor at 115200 bps.
+2. Verify that the console prints `Air530 smoke test ready` followed by NMEA
+sentences.
+3. Start indoors to confirm that the receiver reports `fix status = 0` and
+HDOP values greater than 5.
+4. Move the hardware outdoors with a clear view of the sky. Watch for the first
+`GGA` sentence reporting `fix status = 1` and a decreasing HDOP value.
+5. Log the time-to-first-fix, HDOP, and altitude in the result table.
 
-void loop() {
-  if (gps.available()) {
-    GPS_DATA data;
-    if (gps.readData(&data)) {
-      Serial.print("UTC:");
-      Serial.print(data.UTCtime);
-      Serial.print(" Lat:");
-      Serial.print(data.latitude, 6);
-      Serial.print(" Lon:");
-      Serial.print(data.longitude, 6);
-      Serial.print(" Fix:");
-      Serial.println(data.fixstatus);
-    }
-  }
-}
-```
+#### Expected Results
 
-**Expected output**: NMEA-derived latitude/longitude pairs and fix status
-printed every second once the receiver acquires satellites. A fix status of `1`
-indicates a valid 3D fix.
-main
+- Indoor testing typically shows no valid fix and large HDOP values ( ≥ 99.9 ).
+- Outdoors you should obtain a 3D fix within 30–90 s, HDOP below 1.5, and a
+steady altitude reading consistent with your site.
 
-**Result**:
+#### Result Log
 
 | Date | Firmware Commit | Observed Behavior |
 | --- | --- | --- |
+< codex/update-air530-gps-test-results-mq8xpw
+| 2025-09-17 | 60ec05e | No fix while indoors; once outdoors the receiver acquired a 3D lock in ~40 s with HDOP 0.9 and altitude ~8 m. |
+| _pending_ | | |
+=
 | 2025-09-17 | 60ec05e | Indoors the receiver never obtained a fix; after moving outdoors it locked a valid 3D solution with HDOP 0.9 and reported ~8 m altitude. |
+> main
 
-## Grove Vision AI V2 (I²C)
+---
 
-- **Library**: `Seeed_Arduino_SSCMA`
-- **Wiring**: connect SDA to `GPIO9`, SCL to `GPIO8`, plus 3V3 and GND.
+### Grove Vision AI V2 (I²C)
+
+**Interface:** I²C @ 400 kHz (address 0x62)
+
+#### Required Parts
+- Seeed XIAO ESP32S3
+- Grove Vision AI V2 camera module
+- Grove-to-male jumper cable or breadboard adapter
+
+#### Wiring
+
+| Vision AI Pin | XIAO ESP32S3 Pin | Notes |
+| --- | --- | --- |
+| VCC | 3V3 | Module draws ~110 mA during inference. |
+| GND | GND | Common ground. |
+| SDA | GPIO5 | Shared I²C bus. |
+| SCL | GPIO6 | Shared I²C bus. |
+| INT (optional) | GPIO4 | Optional interrupt for event-driven capture. |
+
+#### Firmware Sketch
 
 ```cpp
 #include <Arduino.h>
+#include <Wire.h>
 #include <Seeed_Arduino_SSCMA.h>
 
-SSCMA ai;
+SSCMA vision;
 
 void setup() {
   Serial.begin(115200);
-  if (!ai.begin()) {
-    Serial.println("Camera init failed");
+  Wire.begin(5, 6);  // SDA, SCL
+
+  if (!vision.begin()) {
+    Serial.println("Vision AI init failed");
     while (true) {
       delay(1000);
     }
   }
-  ai.setDefaultModel();
+
+  vision.setDefaultModel();
+  Serial.println("Vision AI ready");
 }
 
 void loop() {
-  if (ai.invoke()) {
+  if (vision.invoke()) {
     SSCMA::object_detection_t result;
-    if (ai.getResult(result)) {
-      Serial.print("Detections: ");
-      Serial.println(result.object_count);
+    if (vision.getResult(result)) {
+      Serial.printf("Detections: %u\n", result.object_count);
       for (uint8_t i = 0; i < result.object_count; ++i) {
-        Serial.print("Object ");
-        Serial.print(i);
-        Serial.print(" score ");
-        Serial.println(result.objects[i].score);
+        const auto &obj = result.objects[i];
+        Serial.printf("  #%u score %.2f center (%u,%u)\n", i, obj.score, obj.x, obj.y);
       }
     }
   }
-  delay(1000);
+  delay(200);
 }
 ```
 
-**Expected output**: After initialization the camera reports the number of
-objects detected each second along with confidence scores. If no objects are in
-view, the count should be zero.
+#### Test Steps
 
-**Result**:
+1. Connect the module while the ESP32-S3 is powered off to avoid hot-plug
+transients.
+2. Flash the sketch and open the serial console.
+3. Confirm that initialization succeeds (`Vision AI ready`). If it fails, inspect
+the I²C wiring and power rails.
+4. Present a high-contrast object or the bundled classification card to the
+camera and confirm detections increment on the console.
+5. Record detection counts, confidence scores, and any anomalies.
+
+#### Expected Results
+
+- Successful initialization prints `Vision AI ready` and produces object
+reports once the model recognises targets.
+- Idle power should stay below 110 mA. If the board browns out, verify that your
+USB supply can source sufficient current.
+
+#### Result Log
 
 | Date | Firmware Commit | Observed Behavior |
 | --- | --- | --- |
 | _pending_ | | |
 
-## MicroSD Card (SPI)
+---
 
-- **Library**: built-in `SD` from ESP-IDF/Arduino core
-- **Wiring**: connect `CS` to `GPIO1`, `MOSI` to `GPIO10`, `MISO` to `GPIO11`,
-  `SCK` to `GPIO12`, and supply 3V3/GND.
+### MicroSD Card (SPI)
+
+**Interface:** SPI @ up to 20 MHz (SCK → GPIO7, MOSI → GPIO9, MISO → GPIO8, CS → GPIO3)
+
+#### Required Parts
+- Seeed XIAO ESP32S3 with expansion board or breakouts exposing SPI pins
+- microSD card (FAT32 formatted)
+
+#### Wiring
+
+| microSD Pin | XIAO ESP32S3 Pin | Notes |
+| --- | --- | --- |
+| VCC | 3V3 | Use a level-shifted socket if the card requires 3.3 V I/O. |
+| GND | GND | Common ground. |
+| CS | GPIO3 | Chip-select (active low). |
+| MOSI | GPIO9 | Data out from ESP32-S3. |
+| MISO | GPIO8 | Data into ESP32-S3. |
+| SCK | GPIO7 | SPI clock. |
+
+#### Firmware Sketch
 
 ```cpp
 #include <Arduino.h>
-#include <SD.h>
 #include <SPI.h>
+#include <SD.h>
 
-constexpr uint8_t SD_CS = 1;
+constexpr uint8_t SD_CS_PIN = 3;
 
 void setup() {
   Serial.begin(115200);
-  if (!SD.begin(SD_CS)) {
+  SPI.begin(7, 8, 9, SD_CS_PIN);  // SCK, MISO, MOSI, SS
+
+  if (!SD.begin(SD_CS_PIN, SPI, 20000000)) {
     Serial.println("SD init failed");
     while (true) {
       delay(1000);
     }
   }
-  File f = SD.open("test.txt", FILE_WRITE);
+
+  File f = SD.open("baltic.txt", FILE_WRITE);
   if (f) {
     f.println("SD card write test");
     f.close();
@@ -194,12 +269,13 @@ void setup() {
     Serial.println("Write failed");
   }
 
-  f = SD.open("test.txt", FILE_READ);
+  f = SD.open("baltic.txt", FILE_READ);
   if (f) {
     Serial.print("Read back: ");
     while (f.available()) {
       Serial.write(f.read());
     }
+    Serial.println();
     f.close();
   } else {
     Serial.println("Read failed");
@@ -211,19 +287,47 @@ void loop() {
 }
 ```
 
-**Expected output**: `Write OK` followed by the text `SD card write test`
-indicates the card can be mounted, written, and read back successfully.
+#### Test Steps
 
-**Result**:
+1. Insert a known-good microSD card and connect the SPI lines as listed above.
+2. Flash the sketch and open the serial console.
+3. Verify that initialization succeeds and `Write OK` is printed.
+4. Confirm that the read-back string matches `SD card write test`.
+5. Eject the card and check the file on a PC if deeper validation is required.
+
+#### Expected Results
+
+- Initialization succeeds consistently. Repeated failures typically indicate
+incorrect chip-select wiring or cards that require 1.8 V signalling.
+- After several power cycles the file should persist and contain the expected
+payload.
+
+#### Result Log
 
 | Date | Firmware Commit | Observed Behavior |
 | --- | --- | --- |
 | _pending_ | | |
 
-## SSD1315 OLED (I²C)
+---
 
-- **Library**: `Adafruit_SSD1306`
-- **Wiring**: SDA to `GPIO9`, SCL to `GPIO8`, plus 3V3 and GND.
+### SSD1315 OLED Display (I²C)
+
+**Interface:** I²C @ 400 kHz (address 0x3C)
+
+#### Required Parts
+- Seeed XIAO ESP32S3
+- Grove SSD1315 128×64 OLED or equivalent
+
+#### Wiring
+
+| OLED Pin | XIAO ESP32S3 Pin | Notes |
+| --- | --- | --- |
+| VCC | 3V3 | Display draws ~20 mA. |
+| GND | GND | Common ground. |
+| SDA | GPIO5 | Shared I²C bus. |
+| SCL | GPIO6 | Shared I²C bus. |
+
+#### Firmware Sketch
 
 ```cpp
 #include <Arduino.h>
@@ -231,18 +335,21 @@ indicates the card can be mounted, written, and read back successfully.
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
 
-#define SCREEN_WIDTH 128
-#define SCREEN_HEIGHT 64
+constexpr uint8_t SCREEN_WIDTH = 128;
+constexpr uint8_t SCREEN_HEIGHT = 64;
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
 
 void setup() {
   Serial.begin(115200);
+  Wire.begin(5, 6);  // SDA, SCL
+
   if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
     Serial.println("OLED init failed");
     while (true) {
       delay(1000);
     }
   }
+
   display.clearDisplay();
   display.setTextSize(2);
   display.setTextColor(SSD1306_WHITE);
@@ -250,6 +357,7 @@ void setup() {
   display.println("Baltic");
   display.println("Monitor");
   display.display();
+  Serial.println("OLED test pattern rendered");
 }
 
 void loop() {
@@ -257,73 +365,178 @@ void loop() {
 }
 ```
 
-**Expected output**: The OLED displays "Baltic" on the first line and
-"Monitor" on the second line with the Serial console remaining silent after
-initialization.
+#### Test Steps
 
-**Result**:
+1. Flash the sketch and observe the OLED. It should display the words
+“Baltic” and “Monitor”.
+2. Confirm that the serial console prints `OLED test pattern rendered`.
+3. Power-cycle the board to ensure the display initialises reliably.
+
+#### Expected Results
+
+- The screen renders the static text without flickering.
+- If the display stays blank, check the I²C pull-ups on the expansion board.
+
+#### Result Log
 
 | Date | Firmware Commit | Observed Behavior |
 | --- | --- | --- |
 | _pending_ | | |
 
-## X1262 LoRa Radio
+---
 
-- **Library**: `RadioLib`
-- **Wiring**: The Seeed XIAO ESP32S3 LoRa variant has the SX1262 connected
-  internally—no additional wiring is required.
+### Hydrophone + Preamp (Analog ADC)
+
+**Interface:** ESP32-S3 ADC1 channel 0 (GPIO1) sampled at 12-bit resolution
+
+#### Required Parts
+- Seeed XIAO ESP32S3
+- INA332 (or equivalent) hydrophone preamplifier with mid-rail bias
+- Hydrophone element and shielded audio cable
+
+#### Wiring
+
+| Signal | XIAO ESP32S3 Pin | Notes |
+| --- | --- | --- |
+| Preamp VCC | 3V3 | Ensure the preamp supply is filtered. |
+| Preamp GND | GND | Tie the shield to ground at a single point. |
+| Preamp Output | GPIO1 (ADC1_CH0) | Center the signal around 1.65 V. |
+| Optional Power Gate | GPIO2 | Use for muting the preamp between bursts. |
+
+#### Firmware Sketch
+
+```cpp
+#include <Arduino.h>
+#include <driver/adc.h>
+
+constexpr adc_channel_t HYDROPHONE_CHANNEL = ADC_CHANNEL_0;  // GPIO1
+
+void setup() {
+  Serial.begin(115200);
+  adc1_config_width(ADC_WIDTH_BIT_12);
+  adc1_config_channel_atten(HYDROPHONE_CHANNEL, ADC_ATTEN_DB_11);  // 0-3.3 V
+  Serial.println("Hydrophone level monitor ready");
+}
+
+void loop() {
+  constexpr size_t kSamples = 256;
+  int min_val = 4095;
+  int max_val = 0;
+  int32_t accum = 0;
+
+  for (size_t i = 0; i < kSamples; ++i) {
+    int sample = adc1_get_raw(HYDROPHONE_CHANNEL);
+    min_val = min(min_val, sample);
+    max_val = max(max_val, sample);
+    accum += sample;
+  }
+
+  float avg = accum / static_cast<float>(kSamples);
+  float peak_to_peak_volts = (max_val - min_val) * 3.3f / 4095.0f;
+  Serial.printf("avg=%0.1f counts, p-p=%0.2f V\n", avg, peak_to_peak_volts);
+  delay(200);
+}
+```
+
+#### Test Steps
+
+1. Power the preamp and confirm that its output is biased near half the supply
+(~1.65 V).
+2. Flash the sketch and open the serial console.
+3. Observe the reported average value (should hover near 2048 counts) and
+peak-to-peak voltage (<0.05 V in quiet water, >0.2 V when tapping the sensor).
+4. Submerge the hydrophone in water and gently tap near it to confirm that the
+peak-to-peak reading responds accordingly.
+5. If available, capture the UART output to a CSV file for offline FFT analysis.
+
+#### Expected Results
+
+- Background noise yields a peak-to-peak level below 50 mV.
+- Exciting the hydrophone (taps, tone generator) produces visibly higher
+peak-to-peak values without saturating the ADC (stay < 3.0 Vpp).
+- Excessive DC offsets indicate the bias network needs adjustment.
+
+#### Result Log
+
+| Date | Firmware Commit | Observed Behavior |
+| --- | --- | --- |
+| _pending_ | | |
+
+---
+
+### SX1262 LoRa Radio (Integrated SPI)
+
+**Interface:** Internal SPI (CS → GPIO41, Busy → GPIO40, Reset → GPIO42, DIO1 → GPIO39)
+
+#### Required Parts
+- Seeed XIAO ESP32S3 **LoRa** variant (the radio is built in)
+- Optional: second Meshtastic/LoRa node tuned to the same frequency for reception
+verification
+
+#### Firmware Sketch
 
 ```cpp
 #include <Arduino.h>
 #include <RadioLib.h>
 
-SX1262 radio = new Module(5, 7, 6, 3);
+SX1262 radio = new Module(41, 39, 42, 40);  // CS, DIO1, RESET, BUSY
 
 void setup() {
   Serial.begin(115200);
+
   int state = radio.begin(915.0);
   if (state != RADIOLIB_ERR_NONE) {
-    Serial.print("Radio init failed: ");
-    Serial.println(state);
+    Serial.printf("Radio init failed: %d\n", state);
     while (true) {
       delay(1000);
     }
   }
+
   Serial.println("Radio ready, sending test packet");
   state = radio.transmit("hello baltic shoreline");
-  Serial.print("Transmit status: ");
-  Serial.println(state);
+  Serial.printf("Initial transmit status: %d\n", state);
 }
 
 void loop() {
   delay(5000);
   int state = radio.transmit("ping");
-  Serial.print("Periodic transmit status: ");
-  Serial.println(state);
+  Serial.printf("Periodic transmit status: %d\n", state);
 }
 ```
 
-**Expected output**: Successful initialization prints `Radio ready, sending test
-packet`. Transmit status values of `0` indicate the packet was queued
-successfully. To fully verify RF performance, monitor the transmissions with a
-second LoRa receiver tuned to the same frequency.
+#### Test Steps
 
-**Result**:
+1. Flash the sketch and open the serial console.
+2. Verify that `Radio ready, sending test packet` is printed with status `0`.
+3. Monitor the periodic `ping` transmissions. Status `0` indicates success;
+non-zero codes should be cross-referenced with the RadioLib error table.
+4. If possible, confirm reception on a second Meshtastic node or SDR to verify RF
+performance and antenna matching.
+
+#### Expected Results
+
+- Successful initialization and transmission yield status code `0`.
+- If you observe `-5` (timeout) or similar errors, inspect the antenna connection
+and ensure the regional frequency (e.g., 868 vs 915 MHz) matches your hardware.
+
+#### Result Log
 
 | Date | Firmware Commit | Observed Behavior |
 | --- | --- | --- |
 | _pending_ | | |
 
-## Test Log
+---
 
-After completing each bring-up run, update the tables above and summarize the
-outcome here for quick reference.
+## Test Log Guidelines
 
-| Component | Pass/Fail | Notes |
-| --- | --- | --- |
-| Air530 GPS | _pending_ | |
-| Grove Vision AI V2 | _pending_ | |
-| MicroSD | _pending_ | |
-| SSD1315 OLED | _pending_ | |
-| X1262 LoRa | _pending_ | |
+After executing any of the tests above:
 
+- Update the component’s result table with the observed behaviour and add a new
+row rather than overwriting history.
+- Copy a condensed summary into the **Test Summary** table at the top of this
+document for rapid status checks.
+- File follow-up tickets for anomalies and link them next to the relevant table
+row so regressions are easy to audit.
+
+Maintaining accurate hardware test records ensures fielded buoys can be
+assembled and serviced with confidence.
