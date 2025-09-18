@@ -128,8 +128,12 @@ steady altitude reading consistent with your site.
 
 | Date | Firmware Commit | Observed Behavior |
 | --- | --- | --- |
+< codex/update-air530-gps-test-results-mq8xpw
 | 2025-09-17 | 60ec05e | No fix while indoors; once outdoors the receiver acquired a 3D lock in ~40 s with HDOP 0.9 and altitude ~8 m. |
 | _pending_ | | |
+=
+| 2025-09-17 | 60ec05e | Indoors the receiver never obtained a fix; after moving outdoors it locked a valid 3D solution with HDOP 0.9 and reported ~8 m altitude. |
+> main
 
 ---
 
