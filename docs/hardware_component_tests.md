@@ -369,13 +369,28 @@ constexpr uint8_t SD_CS_PIN = 3;
 
 void setup() {
   Serial.begin(115200);
-  SPI.begin(7, 8, 9, SD_CS_PIN);  // SCK, MISO, MOSI, SS
+  const uint32_t serial_start = millis();
+  while (!Serial && (millis() - serial_start) < 4000) {
+    delay(10);
+  }
 
-  if (!SD.begin(SD_CS_PIN, SPI, 20000000)) {
+  Serial.println("Starting microSD smoke test");
+
+  SPI.begin(7, 8, 9, SD_CS_PIN);  // SCK, MISO, MOSI, SS
+  pinMode(SD_CS_PIN, OUTPUT);
+  digitalWrite(SD_CS_PIN, HIGH);
+
+  if (!SD.begin(SD_CS_PIN, SPI, 12000000)) {
     Serial.println("SD init failed");
     while (true) {
-      delay(1000);
+      delay(500);
     }
+  }
+
+  Serial.println("SD init succeeded");
+
+  if (SD.exists("baltic.txt")) {
+    SD.remove("baltic.txt");
   }
 
   File f = SD.open("baltic.txt", FILE_WRITE);
@@ -398,6 +413,8 @@ void setup() {
   } else {
     Serial.println("Read failed");
   }
+
+  Serial.println("microSD test complete");
 }
 
 void loop() {
@@ -408,13 +425,15 @@ void loop() {
 #### Test Steps
 
 1. Insert a known-good microSD card and connect the SPI lines as listed above.
-2. Flash the sketch and open the serial console.
+2. Flash the sketch, open the serial console, and reset the board so you catch the startup banner (the firmware waits up to four seconds for USB Serial to come up).
 3. Verify that initialization succeeds and `Write OK` is printed.
 4. Confirm that the read-back string matches `SD card write test`.
 5. Eject the card and check the file on a PC if deeper validation is required.
 
 #### Expected Results
 
+- The console prints `Starting microSD smoke test`, `SD init succeeded`,
+`Write OK`, and echoes the file contents.
 - Initialization succeeds consistently. Repeated failures typically indicate
 incorrect chip-select wiring or cards that require 1.8 V signalling.
 - After several power cycles the file should persist and contain the expected
