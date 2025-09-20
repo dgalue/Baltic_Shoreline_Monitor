@@ -380,12 +380,21 @@ void setup() {
   }
 
   Serial.println("Starting microSD smoke test");
+< codex/update-grove-vision-ai-v2-test-documentation-wer7np
 
   SPI.begin(SD_SCK_PIN, SD_MISO_PIN, SD_MOSI_PIN, SD_CS_PIN);
   pinMode(SD_CS_PIN, OUTPUT);
   digitalWrite(SD_CS_PIN, HIGH);
 
   if (!SD.begin(SD_CS_PIN, SPI, SD_SPI_FREQ)) {
+=
+
+  SPI.begin(7, 8, 9, SD_CS_PIN);  // SCK, MISO, MOSI, SS
+  pinMode(SD_CS_PIN, OUTPUT);
+  digitalWrite(SD_CS_PIN, HIGH);
+
+  if (!SD.begin(SD_CS_PIN, SPI, 12000000)) {
+> main
     Serial.println("SD init failed");
     while (true) {
       delay(500);
@@ -394,11 +403,19 @@ void setup() {
 
   Serial.println("SD init succeeded");
 
+< codex/update-grove-vision-ai-v2-test-documentation-wer7np
   if (SD.exists(TEST_FILE)) {
     SD.remove(TEST_FILE);
   }
 
   File f = SD.open(TEST_FILE, FILE_WRITE);
+=
+  if (SD.exists("baltic.txt")) {
+    SD.remove("baltic.txt");
+  }
+
+  File f = SD.open("baltic.txt", FILE_WRITE);
+> main
   if (f) {
     if (f.println("SD card write test") > 0) {
       f.close();
