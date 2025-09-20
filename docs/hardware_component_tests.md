@@ -45,7 +45,7 @@ a suitable environment ahead of time.
 | --- | --- | --- | --- | --- |
 | Air530 GPS Module | UART1 @ 9600 bps | 2025-09-17 | 60ec05e | Locked a clean 3D fix outdoors after no indoor acquisition; HDOP 0.9, altitude ≈ 8 m. |
 | Grove Vision AI V2 | I²C (0x62) | 2025-09-19 | b7130f2 | Frequent `Invoke failed` responses with sporadic single-box detections (target 0 score ≈ 50). |
-| MicroSD Card | SPI @ 20 MHz | _pending_ | _pending_ | Card bring-up not yet logged. |
+| MicroSD Card | SPI @ 20 MHz | 2025-09-20 | 60ec05e | Init succeeded; wrote and read `SD card write test`. |
 | SSD1315 OLED | I²C (0x3C) | _pending_ | _pending_ | Display test not yet logged. |
 | Hydrophone + Preamp | ADC1 continuous | _pending_ | _pending_ | Acoustic capture test pending. |
 | SX1262 LoRa Radio | Internal SPI | _pending_ | _pending_ | RF smoke test pending follow-up. |
@@ -471,7 +471,7 @@ payload.
 
 | Date | Firmware Commit | Observed Behavior |
 | --- | --- | --- |
-| _pending_ | | |
+| 2025-09-20 | 60ec05e | Console log showed `SD init succeeded`, `Write OK`, and `Read back: SD card write test` before `microSD test complete`. |
 
 ---
 
