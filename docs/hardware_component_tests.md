@@ -366,6 +366,11 @@ inference routine to abort mid-cycle.
 #include <SD.h>
 
 constexpr uint8_t SD_CS_PIN = 3;
+constexpr uint8_t SD_SCK_PIN = 7;
+constexpr uint8_t SD_MISO_PIN = 8;
+constexpr uint8_t SD_MOSI_PIN = 9;
+constexpr char TEST_FILE[] = "/baltic.txt";
+constexpr uint32_t SD_SPI_FREQ = 12000000;
 
 void setup() {
   Serial.begin(115200);
@@ -375,12 +380,21 @@ void setup() {
   }
 
   Serial.println("Starting microSD smoke test");
+< codex/update-grove-vision-ai-v2-test-documentation-wer7np
+
+  SPI.begin(SD_SCK_PIN, SD_MISO_PIN, SD_MOSI_PIN, SD_CS_PIN);
+  pinMode(SD_CS_PIN, OUTPUT);
+  digitalWrite(SD_CS_PIN, HIGH);
+
+  if (!SD.begin(SD_CS_PIN, SPI, SD_SPI_FREQ)) {
+=
 
   SPI.begin(7, 8, 9, SD_CS_PIN);  // SCK, MISO, MOSI, SS
   pinMode(SD_CS_PIN, OUTPUT);
   digitalWrite(SD_CS_PIN, HIGH);
 
   if (!SD.begin(SD_CS_PIN, SPI, 12000000)) {
+> main
     Serial.println("SD init failed");
     while (true) {
       delay(500);
@@ -389,20 +403,32 @@ void setup() {
 
   Serial.println("SD init succeeded");
 
+< codex/update-grove-vision-ai-v2-test-documentation-wer7np
+  if (SD.exists(TEST_FILE)) {
+    SD.remove(TEST_FILE);
+  }
+
+  File f = SD.open(TEST_FILE, FILE_WRITE);
+=
   if (SD.exists("baltic.txt")) {
     SD.remove("baltic.txt");
   }
 
   File f = SD.open("baltic.txt", FILE_WRITE);
+> main
   if (f) {
-    f.println("SD card write test");
-    f.close();
-    Serial.println("Write OK");
+    if (f.println("SD card write test") > 0) {
+      f.close();
+      Serial.println("Write OK");
+    } else {
+      f.close();
+      Serial.println("Write failed (println)");
+    }
   } else {
-    Serial.println("Write failed");
+    Serial.println("Write failed (open)");
   }
 
-  f = SD.open("baltic.txt", FILE_READ);
+  f = SD.open(TEST_FILE, FILE_READ);
   if (f) {
     Serial.print("Read back: ");
     while (f.available()) {
@@ -411,7 +437,7 @@ void setup() {
     Serial.println();
     f.close();
   } else {
-    Serial.println("Read failed");
+    Serial.println("Read failed (open)");
   }
 
   Serial.println("microSD test complete");
@@ -429,6 +455,8 @@ void loop() {
 3. Verify that initialization succeeds and `Write OK` is printed.
 4. Confirm that the read-back string matches `SD card write test`.
 5. Eject the card and check the file on a PC if deeper validation is required.
+
+If you see `Write failed (open)` or `Read failed (open)` double-check the CS wiring and keep the leading `/` in `TEST_FILE` so the ESP32 SD driver opens the file from the root of the card.
 
 #### Expected Results
 
