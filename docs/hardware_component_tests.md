@@ -44,7 +44,7 @@ a suitable environment ahead of time.
 | Component | Interface | Last Run | Firmware Commit | Result Summary |
 | --- | --- | --- | --- | --- |
 | Air530 GPS Module | UART1 @ 9600 bps | 2025-09-17 | 60ec05e | Locked a clean 3D fix outdoors after no indoor acquisition; HDOP 0.9, altitude ≈ 8 m. |
-| Grove Vision AI V2 | I²C (0x62) | _pending_ | _pending_ | Awaiting first article validation. |
+| Grove Vision AI V2 | I²C (0x62) | 2025-09-19 | b7130f2 | Frequent `Invoke failed` responses with sporadic single-box detections (target 0 score ≈ 50). |
 | MicroSD Card | SPI @ 20 MHz | _pending_ | _pending_ | Card bring-up not yet logged. |
 | SSD1315 OLED | I²C (0x3C) | _pending_ | _pending_ | Display test not yet logged. |
 | Hydrophone + Preamp | ADC1 continuous | _pending_ | _pending_ | Acoustic capture test pending. |
@@ -133,7 +133,6 @@ steady altitude reading consistent with your site.
 < codex/update-air530-gps-test-results-mq8xpw
 > main
 | 2025-09-17 | 60ec05e | No fix while indoors; once outdoors the receiver acquired a 3D lock in ~40 s with HDOP 0.9 and altitude ~8 m. |
-| _pending_ | | |
 =
 | 2025-09-17 | 60ec05e | Indoors the receiver never obtained a fix; after moving outdoors it locked a valid 3D solution with HDOP 0.9 and reported ~8 m altitude. |
 > main
@@ -302,17 +301,20 @@ camera and confirm detections increment on the console.
 
 #### Expected Results
 
-> main
 - Successful initialization prints `Vision AI ready` and produces object
 reports once the model recognises targets.
 - Idle power should stay below 110 mA. If the board browns out, verify that your
 USB supply can source sufficient current.
 
+If repeated `Invoke failed` messages appear, re-check the 3V3 rail and consider
+reflashing the module firmware; marginal power or stale firmware can cause the
+inference routine to abort mid-cycle.
+
 #### Result Log
 
 | Date | Firmware Commit | Observed Behavior |
 | --- | --- | --- |
-| _pending_ | | |
+| 2025-09-19 | b7130f2 | Majority of invokes printed `Invoke failed`; every few iterations one pass succeeded, reporting `Detected 1 boxes` with target 0 score 50 before the failures returned, pointing to unstable inference likely tied to power or firmware. |
 
 ---
 
@@ -364,28 +366,52 @@ USB supply can source sufficient current.
 #include <SD.h>
 
 constexpr uint8_t SD_CS_PIN = 3;
+constexpr uint8_t SD_SCK_PIN = 7;
+constexpr uint8_t SD_MISO_PIN = 8;
+constexpr uint8_t SD_MOSI_PIN = 9;
+constexpr char TEST_FILE[] = "/baltic.txt";
+constexpr uint32_t SD_SPI_FREQ = 12000000;
 
 void setup() {
   Serial.begin(115200);
-  SPI.begin(7, 8, 9, SD_CS_PIN);  // SCK, MISO, MOSI, SS
+  const uint32_t serial_start = millis();
+  while (!Serial && (millis() - serial_start) < 4000) {
+    delay(10);
+  }
 
-  if (!SD.begin(SD_CS_PIN, SPI, 20000000)) {
+  Serial.println("Starting microSD smoke test");
+
+  SPI.begin(SD_SCK_PIN, SD_MISO_PIN, SD_MOSI_PIN, SD_CS_PIN);
+  pinMode(SD_CS_PIN, OUTPUT);
+  digitalWrite(SD_CS_PIN, HIGH);
+
+  if (!SD.begin(SD_CS_PIN, SPI, SD_SPI_FREQ)) {
     Serial.println("SD init failed");
     while (true) {
-      delay(1000);
+      delay(500);
     }
   }
 
-  File f = SD.open("baltic.txt", FILE_WRITE);
-  if (f) {
-    f.println("SD card write test");
-    f.close();
-    Serial.println("Write OK");
-  } else {
-    Serial.println("Write failed");
+  Serial.println("SD init succeeded");
+
+  if (SD.exists(TEST_FILE)) {
+    SD.remove(TEST_FILE);
   }
 
-  f = SD.open("baltic.txt", FILE_READ);
+  File f = SD.open(TEST_FILE, FILE_WRITE);
+  if (f) {
+    if (f.println("SD card write test") > 0) {
+      f.close();
+      Serial.println("Write OK");
+    } else {
+      f.close();
+      Serial.println("Write failed (println)");
+    }
+  } else {
+    Serial.println("Write failed (open)");
+  }
+
+  f = SD.open(TEST_FILE, FILE_READ);
   if (f) {
     Serial.print("Read back: ");
     while (f.available()) {
@@ -394,8 +420,10 @@ void setup() {
     Serial.println();
     f.close();
   } else {
-    Serial.println("Read failed");
+    Serial.println("Read failed (open)");
   }
+
+  Serial.println("microSD test complete");
 }
 
 void loop() {
@@ -406,13 +434,17 @@ void loop() {
 #### Test Steps
 
 1. Insert a known-good microSD card and connect the SPI lines as listed above.
-2. Flash the sketch and open the serial console.
+2. Flash the sketch, open the serial console, and reset the board so you catch the startup banner (the firmware waits up to four seconds for USB Serial to come up).
 3. Verify that initialization succeeds and `Write OK` is printed.
 4. Confirm that the read-back string matches `SD card write test`.
 5. Eject the card and check the file on a PC if deeper validation is required.
 
+If you see `Write failed (open)` or `Read failed (open)` double-check the CS wiring and keep the leading `/` in `TEST_FILE` so the ESP32 SD driver opens the file from the root of the card.
+
 #### Expected Results
 
+- The console prints `Starting microSD smoke test`, `SD init succeeded`,
+`Write OK`, and echoes the file contents.
 - Initialization succeeds consistently. Repeated failures typically indicate
 incorrect chip-select wiring or cards that require 1.8 V signalling.
 - After several power cycles the file should persist and contain the expected
